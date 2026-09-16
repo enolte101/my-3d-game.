@@ -1,41 +1,1861 @@
-
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Turbo Soccer</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Turbo Arena 3D</title>
+
+<style>
+*{box-sizing:border-box}
+
+html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#05070c;
+    font-family:Arial,sans-serif;
+}
+
+canvas{
+    display:block;
+    width:100%;
+    height:100%;
+}
+
+#menu{
+    position:absolute;
+    inset:0;
+    z-index:20;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    background:
+      radial-gradient(circle at center,#17375b 0,#08101c 45%,#020408 100%);
+    color:white;
+    text-align:center;
+}
+
+#menu h1{
+    margin:0 0 8px;
+    font-size:clamp(42px,8vw,90px);
+    letter-spacing:7px;
+}
+
+#menu p{
+    opacity:.75;
+    font-size:18px;
+}
+
+.modeRow{
+    display:flex;
+    gap:12px;
+    margin:25px 0;
+    flex-wrap:wrap;
+    justify-content:center;
+}
+
+.mode{
+    min-width:100px;
+    padding:15px 25px;
+    border:2px solid rgba(255,255,255,.35);
+    border-radius:8px;
+    background:#101b2a;
+    color:white;
+    font-size:18px;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.mode.selected{
+    background:#167cff;
+    border-color:#69bcff;
+}
+
+#start{
+    padding:16px 60px;
+    border:0;
+    border-radius:8px;
+    background:#168cff;
+    color:white;
+    font-size:23px;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.controls{
+    margin-top:25px;
+    line-height:1.7;
+    opacity:.7;
+    font-size:14px;
+}
+
+#hud{
+    position:absolute;
+    z-index:5;
+    left:50%;
+    top:15px;
+    transform:translateX(-50%);
+    display:none;
+    align-items:center;
+    gap:45px;
+    color:white;
+    font-weight:bold;
+    pointer-events:none;
+}
+
+.score{
+    font-size:42px;
+}
+
+.blue{
+    color:#39a9ff;
+}
+
+.orange{
+    color:#ff8a35;
+}
+
+.clock{
+    font-size:24px;
+}
+
+#boost{
+    position:absolute;
+    z-index:5;
+    right:30px;
+    bottom:28px;
+    width:190px;
+    height:35px;
+    border:2px solid white;
+    border-radius:20px;
+    overflow:hidden;
+    display:none;
+    color:white;
+    text-align:center;
+    line-height:31px;
+    font-weight:bold;
+}
+
+#boostBar{
+    position:absolute;
+    left:0;
+    top:0;
+    bottom:0;
+    width:100%;
+    background:#ff9e22;
+}
+
+#boostText{
+    position:relative;
+}
+
+#message{
+    position:absolute;
+    z-index:10;
+    left:50%;
+    top:45%;
+    transform:translate(-50%,-50%);
+    color:white;
+    font-size:60px;
+    font-weight:bold;
+    text-shadow:0 4px 20px black;
+    pointer-events:none;
+}
+</style>
 </head>
+
 <body>
-  <div id="menu">
-    <h1>TURBO SOCCER</h1>
-    <p>3D-style arcade car soccer</p>
-    <button id="play">PLAY</button>
-    <div class="controls">
-      <b>Controls</b><br>
-      W / S — Drive<br>
-      A / D — Steer<br>
-      Space — Jump<br>
-      Shift — Boost
+
+<canvas id="gl"></canvas>
+
+<div id="menu">
+    <h1>TURBO ARENA</h1>
+    <p>3D car soccer</p>
+
+    <div class="modeRow">
+        <button class="mode selected" data-mode="1">1v1</button>
+        <button class="mode" data-mode="2">2v2</button>
+        <button class="mode" data-mode="3">3v3</button>
     </div>
-  </div>
 
-  <canvas id="game"></canvas>
+    <button id="start">PLAY</button>
 
-  <div id="hud">
-    <div id="blueScore">0</div>
-    <div id="timer">5:00</div>
-    <div id="orangeScore">0</div>
-  </div>
+    <div class="controls">
+        W / S — Drive / Reverse<br>
+        A / D — Steer<br>
+        SPACE — Jump / Double Jump<br>
+        SHIFT — Boost<br>
+        Q / E — Air Roll<br>
+        Mouse — Look
+    </div>
+</div>
 
-  <div id="boost">
-    <div id="boostFill"></div>
-    <span>BOOST</span>
-  </div>
+<div id="hud">
+    <div id="blueScore" class="score blue">0</div>
+    <div id="clock" class="clock">5:00</div>
+    <div id="orangeScore" class="score orange">0</div>
+</div>
 
-  <div id="message"></div>
+<div id="boost">
+    <div id="boostBar"></div>
+    <span id="boostText">100 BOOST</span>
+</div>
 
-  <script src="game.js"></script>
-</body>
-</html>
+<div id="message"></div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   TURBO ARENA
+   Original browser 3D car-soccer game
+   Raw WebGL — no Three.js
+   ============================================================ */
+
+const canvas = document.getElementById("gl");
+const gl = canvas.getContext("webgl",{
+    antialias:true,
+    alpha:false
+});
+
+if(!gl){
+    alert("WebGL is not supported by this browser.");
+    throw new Error("WebGL unavailable");
+}
+
+/* ============================================================
+   MATH
+   ============================================================ */
+
+const PI=Math.PI;
+
+function v3(x=0,y=0,z=0){
+    return {x,y,z};
+}
+
+function add(a,b){
+    return v3(a.x+b.x,a.y+b.y,a.z+b.z);
+}
+
+function sub(a,b){
+    return v3(a.x-b.x,a.y-b.y,a.z-b.z);
+}
+
+function mul(a,s){
+    return v3(a.x*s,a.y*s,a.z*s);
+}
+
+function dot(a,b){
+    return a.x*b.x+a.y*b.y+a.z*b.z;
+}
+
+function cross(a,b){
+    return v3(
+        a.y*b.z-a.z*b.y,
+        a.z*b.x-a.x*b.z,
+        a.x*b.y-a.y*b.x
+    );
+}
+
+function len(a){
+    return Math.sqrt(dot(a,a));
+}
+
+function norm(a){
+    const l=len(a);
+    if(l<0.00001)return v3();
+    return mul(a,1/l);
+}
+
+function clamp(x,a,b){
+    return Math.max(a,Math.min(b,x));
+}
+
+function lerp(a,b,t){
+    return a+(b-a)*t;
+}
+
+function yawForward(yaw){
+    return v3(
+        Math.sin(yaw),
+        0,
+        Math.cos(yaw)
+    );
+}
+
+/* ============================================================
+   MATRIX
+   ============================================================ */
+
+function mat4Identity(){
+    return new Float32Array([
+        1,0,0,0,
+        0,1,0,0,
+        0,0,1,0,
+        0,0,0,1
+    ]);
+}
+
+function mat4Multiply(a,b){
+    const o=new Float32Array(16);
+
+    for(let c=0;c<4;c++){
+        for(let r=0;r<4;r++){
+            o[c*4+r]=
+                a[0*4+r]*b[c*4+0]+
+                a[1*4+r]*b[c*4+1]+
+                a[2*4+r]*b[c*4+2]+
+                a[3*4+r]*b[c*4+3];
+        }
+    }
+
+    return o;
+}
+
+function perspective(fov,aspect,near,far){
+    const f=1/Math.tan(fov/2);
+    const nf=1/(near-far);
+
+    return new Float32Array([
+        f/aspect,0,0,0,
+        0,f,0,0,
+        0,0,(far+near)*nf,-1,
+        0,0,(2*far*near)*nf,0
+    ]);
+}
+
+function lookAt(eye,target,up){
+    const z=norm(sub(eye,target));
+    const x=norm(cross(up,z));
+    const y=cross(z,x);
+
+    return new Float32Array([
+        x.x,y.x,z.x,0,
+        x.y,y.y,z.y,0,
+        x.z,y.z,z.z,0,
+        -dot(x,eye),
+        -dot(y,eye),
+        -dot(z,eye),
+        1
+    ]);
+}
+
+function translation(x,y,z){
+    const m=mat4Identity();
+    m[12]=x;
+    m[13]=y;
+    m[14]=z;
+    return m;
+}
+
+function scaleMat(x,y,z){
+    const m=mat4Identity();
+    m[0]=x;
+    m[5]=y;
+    m[10]=z;
+    return m;
+}
+
+function rotX(a){
+    const c=Math.cos(a),s=Math.sin(a);
+
+    return new Float32Array([
+        1,0,0,0,
+        0,c,s,0,
+        0,-s,c,0,
+        0,0,0,1
+    ]);
+}
+
+function rotY(a){
+    const c=Math.cos(a),s=Math.sin(a);
+
+    return new Float32Array([
+        c,0,-s,0,
+        0,1,0,0,
+        s,0,c,0,
+        0,0,0,1
+    ]);
+}
+
+function rotZ(a){
+    const c=Math.cos(a),s=Math.sin(a);
+
+    return new Float32Array([
+        c,s,0,0,
+        -s,c,0,0,
+        0,0,1,0,
+        0,0,0,1
+    ]);
+}
+
+/* ============================================================
+   SHADERS
+   ============================================================ */
+
+const vs=`
+attribute vec3 aPosition;
+attribute vec3 aNormal;
+
+uniform mat4 uMVP;
+uniform mat4 uModel;
+
+varying vec3 vNormal;
+varying vec3 vWorld;
+
+void main(){
+    vec4 world=uModel*vec4(aPosition,1.0);
+    vWorld=world.xyz;
+    vNormal=mat3(uModel)*aNormal;
+    gl_Position=uMVP*vec4(aPosition,1.0);
+}
+`;
+
+const fs=`
+precision mediump float;
+
+uniform vec3 uColor;
+uniform vec3 uLight;
+
+varying vec3 vNormal;
+varying vec3 vWorld;
+
+void main(){
+    vec3 n=normalize(vNormal);
+    float light=max(dot(n,normalize(uLight)),0.0);
+
+    float ambient=.30;
+    vec3 c=uColor*(ambient+light*.70);
+
+    gl_FragColor=vec4(c,1.0);
+}
+`;
+
+function compile(type,source){
+    const s=gl.createShader(type);
+    gl.shaderSource(s,source);
+    gl.compileShader(s);
+
+    if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){
+        console.error(gl.getShaderInfoLog(s));
+    }
+
+    return s;
+}
+
+const program=gl.createProgram();
+
+gl.attachShader(program,compile(gl.VERTEX_SHADER,vs));
+gl.attachShader(program,compile(gl.FRAGMENT_SHADER,fs));
+
+gl.linkProgram(program);
+gl.useProgram(program);
+
+const loc={
+    pos:gl.getAttribLocation(program,"aPosition"),
+    normal:gl.getAttribLocation(program,"aNormal"),
+    mvp:gl.getUniformLocation(program,"uMVP"),
+    model:gl.getUniformLocation(program,"uModel"),
+    color:gl.getUniformLocation(program,"uColor"),
+    light:gl.getUniformLocation(program,"uLight")
+};
+
+/* ============================================================
+   MESHES
+   ============================================================ */
+
+function cubeMesh(){
+    const p=[
+        -1,-1,-1, 1,-1,-1, 1,1,-1, -1,1,-1,
+        -1,-1,1, 1,-1,1, 1,1,1, -1,1,1
+    ];
+
+    const faces=[
+        [0,1,2,3,0,0,-1],
+        [4,7,6,5,0,0,1],
+        [0,4,5,1,0,-1,0],
+        [3,2,6,7,0,1,0],
+        [1,5,6,2,1,0,0],
+        [0,3,7,4,-1,0,0]
+    ];
+
+    const verts=[];
+    const norms=[];
+
+    for(const f of faces){
+        const a=f[0],b=f[1],c=f[2],d=f[3];
+
+        for(const i of [a,b,c,a,c,d]){
+            verts.push(
+                p[i*3],
+                p[i*3+1],
+                p[i*3+2]
+            );
+
+            norms.push(f[4],f[5],f[6]);
+        }
+    }
+
+    return createMesh(verts,norms);
+}
+
+function sphereMesh(rows=20,cols=28){
+    const verts=[];
+    const norms=[];
+
+    for(let r=0;r<rows;r++){
+        const t0=r/rows*PI;
+        const t1=(r+1)/rows*PI;
+
+        for(let c=0;c<cols;c++){
+            const p0=c/cols*PI*2;
+            const p1=(c+1)/cols*PI*2;
+
+            const pts=[
+                [Math.sin(t0)*Math.cos(p0),Math.cos(t0),Math.sin(t0)*Math.sin(p0)],
+                [Math.sin(t1)*Math.cos(p0),Math.cos(t1),Math.sin(t1)*Math.sin(p0)],
+                [Math.sin(t1)*Math.cos(p1),Math.cos(t1),Math.sin(t1)*Math.sin(p1)],
+                [Math.sin(t0)*Math.cos(p0),Math.cos(t0),Math.sin(t0)*Math.sin(p0)],
+                [Math.sin(t1)*Math.cos(p1),Math.cos(t1),Math.sin(t1)*Math.sin(p1)],
+                [Math.sin(t0)*Math.cos(p1),Math.cos(t0),Math.sin(t0)*Math.sin(p1)]
+            ];
+
+            for(const q of pts){
+                verts.push(q[0],q[1],q[2]);
+                norms.push(q[0],q[1],q[2]);
+            }
+        }
+    }
+
+    return createMesh(verts,norms);
+}
+
+function createMesh(vertices,normals){
+    const vao={
+        vb:gl.createBuffer(),
+        nb:gl.createBuffer(),
+        count:vertices.length/3
+    };
+
+    gl.bindBuffer(gl.ARRAY_BUFFER,vao.vb);
+    gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array(vertices),
+        gl.STATIC_DRAW
+    );
+
+    gl.bindBuffer(gl.ARRAY_BUFFER,vao.nb);
+    gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array(normals),
+        gl.STATIC_DRAW
+    );
+
+    return vao;
+}
+
+const cube=cubeMesh();
+const sphere=sphereMesh();
+
+/* ============================================================
+   RENDERING
+   ============================================================ */
+
+let projection;
+let view;
+
+function drawMesh(mesh,model,color){
+    const vp=mat4Multiply(projection,view);
+    const mvp=mat4Multiply(vp,model);
+
+    gl.uniformMatrix4fv(loc.mvp,false,mvp);
+    gl.uniformMatrix4fv(loc.model,false,model);
+    gl.uniform3fv(loc.color,color);
+    gl.uniform3fv(loc.light,new Float32Array([-.5,1,-.7]));
+
+    gl.bindBuffer(gl.ARRAY_BUFFER,mesh.vb);
+    gl.enableVertexAttribArray(loc.pos);
+    gl.vertexAttribPointer(
+        loc.pos,3,gl.FLOAT,false,0,0
+    );
+
+    gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);
+    gl.enableVertexAttribArray(loc.normal);
+    gl.vertexAttribPointer(
+        loc.normal,3,gl.FLOAT,false,0,0
+    );
+
+    gl.drawArrays(
+        gl.TRIANGLES,
+        0,
+        mesh.count
+    );
+}
+
+function box(x,y,z,sx,sy,sz,color,rx=0,ry=0,rz=0){
+    let m=translation(x,y,z);
+
+    m=mat4Multiply(m,rotY(ry));
+    m=mat4Multiply(m,rotX(rx));
+    m=mat4Multiply(m,rotZ(rz));
+    m=mat4Multiply(m,scaleMat(sx,sy,sz));
+
+    drawMesh(cube,m,color);
+}
+
+function ballRender(){
+    const m=mat4Multiply(
+        translation(ball.pos.x,ball.pos.y,ball.pos.z),
+        scaleMat(ball.radius,ball.radius,ball.radius)
+    );
+
+    drawMesh(
+        sphere,
+        m,
+        [0.93,0.93,0.96]
+    );
+}
+
+/* ============================================================
+   FIELD
+   ============================================================ */
+
+const FIELD_X=45;
+const FIELD_Z=70;
+const GOAL_W=18;
+const GOAL_H=9;
+const GOAL_D=10;
+
+function renderField(){
+
+    // grass
+    box(
+        0,-1.5,0,
+        FIELD_X,1.5,FIELD_Z,
+        [0.07,0.38,0.16]
+    );
+
+    // center stripe
+    box(
+        0,.03,0,
+        .12,.03,FIELD_Z,
+        [1,1,1]
+    );
+
+    // center circle approximation
+    for(let i=0;i<32;i++){
+        const a=i/32*PI*2;
+
+        box(
+            Math.sin(a)*9,
+            .04,
+            Math.cos(a)*9,
+            .15,.03,.8,
+            [1,1,1],
+            0,
+            a
+        );
+    }
+
+    // side walls
+    box(
+        -FIELD_X-1,
+        4,
+        0,
+        1,
+        5,
+        FIELD_Z,
+        [.10,.12,.16]
+    );
+
+    box(
+        FIELD_X+1,
+        4,
+        0,
+        1,
+        5,
+        FIELD_Z,
+        [.10,.12,.16]
+    );
+
+    // back walls with goal opening
+    box(
+        0,
+        4,
+        -FIELD_Z-1,
+        FIELD_X,
+        5,
+        1,
+        [.10,.12,.16]
+    );
+
+    box(
+        0,
+        4,
+        FIELD_Z+1,
+        FIELD_X,
+        5,
+        1,
+        [.10,.12,.16]
+    );
+
+    // goal frames
+    const goalY=GOAL_H/2;
+
+    // blue goal
+    box(
+        -FIELD_X-GOAL_D,
+        GOAL_H/2,
+        -FIELD_Z,
+        GOAL_D,
+        GOAL_H/2,
+        GOAL_W/2,
+        [.03,.35,.9]
+    );
+
+    // orange goal
+    box(
+        FIELD_X+GOAL_D,
+        GOAL_H/2,
+        FIELD_Z,
+        GOAL_D,
+        GOAL_H/2,
+        GOAL_W/2,
+        [.9,.25,.05]
+    );
+
+    // goal posts
+    for(const side of [-1,1]){
+        const x=side*(FIELD_X+0.2);
+
+        box(
+            x,
+            GOAL_H/2,
+            -GOAL_W/2,
+            .5,
+            GOAL_H/2,
+            .5,
+            side<0?[.05,.4,1]:[1,.3,.05]
+        );
+
+        box(
+            x,
+            GOAL_H/2,
+            GOAL_W/2,
+            .5,
+            GOAL_H/2,
+            .5,
+            side<0?[.05,.4,1]:[1,.3,.05]
+        );
+    }
+}
+
+/* ============================================================
+   GAME OBJECTS
+   ============================================================ */
+
+function makeCar(team,x,z,controlled=false){
+    return {
+        team,
+        controlled,
+
+        pos:v3(x,1.25,z),
+        vel:v3(),
+
+        yaw:team==="blue"?0:PI,
+        pitch:0,
+        roll:0,
+
+        angular:v3(),
+
+        grounded:true,
+        jumps:1,
+
+        boost:100,
+
+        radius:2.1,
+
+        speed:0,
+
+        steer:0,
+
+        respawnTimer:0
+    };
+}
+
+const ball={
+    pos:v3(0,2.1,0),
+    vel:v3(),
+    radius:2.1
+};
+
+let cars=[];
+let player=null;
+
+let blueScore=0;
+let orangeScore=0;
+let selectedMode=1;
+let playing=false;
+let matchTime=300;
+
+function setupTeams(){
+
+    cars=[];
+    player=null;
+
+    const spacing=12;
+
+    // player
+    player=makeCar(
+        "blue",
+        -25,
+        0,
+        true
+    );
+
+    cars.push(player);
+
+    // blue teammates
+    for(let i=1;i<selectedMode;i++){
+
+        cars.push(
+            makeCar(
+                "blue",
+                -25,
+                (i-(selectedMode-1)/2)*spacing
+            )
+        );
+    }
+
+    // orange team
+    for(let i=0;i<selectedMode;i++){
+
+        cars.push(
+            makeCar(
+                "orange",
+                25,
+                (i-(selectedMode-1)/2)*spacing
+            )
+        );
+    }
+}
+
+function resetKickoff(){
+
+    for(const c of cars){
+
+        const blue=c.team==="blue";
+
+        c.pos.x=blue?-25:25;
+
+        c.pos.z=
+            c===player
+            ?0
+            :(Math.random()-.5)*20;
+
+        c.pos.y=1.25;
+
+        c.vel=v3();
+
+        c.pitch=0;
+        c.roll=0;
+
+        c.angular=v3();
+
+        c.grounded=true;
+        c.jumps=1;
+        c.boost=100;
+
+        c.respawnTimer=0;
+
+        c.yaw=blue?0:PI;
+    }
+
+    ball.pos=v3(0,2.1,0);
+    ball.vel=v3();
+}
+
+function score(team){
+
+    if(team==="blue"){
+        blueScore++;
+        message("BLUE SCORES!");
+    }else{
+        orangeScore++;
+        message("ORANGE SCORES!");
+    }
+
+    setTimeout(resetKickoff,1300);
+}
+
+function message(t){
+
+    const el=document.getElementById("message");
+
+    el.textContent=t;
+
+    setTimeout(()=>{
+        if(el.textContent===t){
+            el.textContent="";
+        }
+    },1100);
+}
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+
+const keys={};
+
+window.addEventListener("keydown",e=>{
+
+    keys[e.code]=true;
+
+    if([
+        "Space",
+        "ArrowUp",
+        "ArrowDown",
+        "ArrowLeft",
+        "ArrowRight"
+    ].includes(e.code)){
+        e.preventDefault();
+    }
+});
+
+window.addEventListener("keyup",e=>{
+    keys[e.code]=false;
+});
+
+/* ============================================================
+   PLAYER PHYSICS
+   ============================================================ */
+
+const CAR_ACCEL=45;
+const CAR_MAX_SPEED=32;
+const BOOST_ACCEL=55;
+const BOOST_MAX_SPEED=46;
+
+function updatePlayer(c,dt){
+
+    const forward=yawForward(c.yaw);
+
+    const right=v3(
+        Math.cos(c.yaw),
+        0,
+        -Math.sin(c.yaw)
+    );
+
+    const throttle=
+        (keys.KeyW||keys.ArrowUp?1:0)-
+        (keys.KeyS||keys.ArrowDown?1:0);
+
+    const steer=
+        (keys.KeyD||keys.ArrowRight?1:0)-
+        (keys.KeyA||keys.ArrowLeft?1:0);
+
+    c.steer=steer;
+
+    const forwardSpeed=dot(c.vel,forward);
+
+    // acceleration
+    if(Math.abs(throttle)>0){
+
+        c.vel=add(
+            c.vel,
+            mul(
+                forward,
+                throttle*CAR_ACCEL*dt
+            )
+        );
+    }
+
+    // steering
+    const steeringStrength=
+        c.grounded
+        ? 2.6
+        : .75;
+
+    c.yaw+=
+        steer*
+        steeringStrength*
+        dt*
+        clamp(
+            Math.abs(forwardSpeed)/8,
+            .15,
+            1.5
+        );
+
+    // ground friction
+    if(c.grounded){
+
+        const lateral=
+            dot(c.vel,right);
+
+        c.vel=sub(
+            c.vel,
+            mul(
+                right,
+                lateral*8*dt
+            )
+        );
+
+        c.vel.x*=Math.pow(.55,dt);
+        c.vel.z*=Math.pow(.55,dt);
+    }
+
+    // boost
+    const boosting=
+        keys.ShiftLeft||
+        keys.ShiftRight;
+
+    if(
+        boosting &&
+        c.boost>0
+    ){
+
+        c.vel=add(
+            c.vel,
+            mul(
+                forward,
+                BOOST_ACCEL*dt
+            )
+        );
+
+        c.boost-=33*dt;
+
+    }else{
+
+        c.boost+=12*dt;
+    }
+
+    c.boost=clamp(c.boost,0,100);
+
+    // speed cap
+    const max=
+        boosting&&c.boost>0
+        ?BOOST_MAX_SPEED
+        :CAR_MAX_SPEED;
+
+    const horizontal=v3(
+        c.vel.x,
+        0,
+        c.vel.z
+    );
+
+    const hs=len(horizontal);
+
+    if(hs>max){
+
+        const n=mul(horizontal,1/hs);
+
+        c.vel.x=n.x*max;
+        c.vel.z=n.z*max;
+    }
+
+    // jump
+    if(keys.Space && !c._spaceWasDown){
+
+        if(c.grounded){
+
+            c.vel.y=17;
+            c.grounded=false;
+            c.jumps=1;
+
+        }else if(c.jumps>0){
+
+            // second jump
+            c.vel.y=15;
+            c.jumps--;
+
+            // small forward flip impulse
+            c.vel=add(
+                c.vel,
+                mul(forward,5)
+            );
+        }
+    }
+
+    c._spaceWasDown=!!keys.Space;
+
+    // aerial rotation
+    if(!c.grounded){
+
+        const airRoll=
+            (keys.KeyE?1:0)-
+            (keys.KeyQ?1:0);
+
+        const airPitch=
+            (keys.KeyS?1:0)-
+            (keys.KeyW?1:0);
+
+        c.roll+=airRoll*4.5*dt;
+        c.pitch+=airPitch*3.2*dt;
+
+        // yaw control in air
+        c.yaw+=steer*2.4*dt;
+    }
+
+    // gravity
+    c.vel.y-=40*dt;
+
+    c.pos=add(
+        c.pos,
+        mul(c.vel,dt)
+    );
+
+    // ground
+    if(c.pos.y<=1.25){
+
+        c.pos.y=1.25;
+
+        if(c.vel.y<0)c.vel.y=0;
+
+        c.grounded=true;
+        c.jumps=1;
+
+        // naturally return toward upright
+        c.pitch*=Math.pow(.02,dt);
+        c.roll*=Math.pow(.02,dt);
+
+    }else{
+
+        c.grounded=false;
+    }
+
+    carWalls(c);
+}
+
+/* ============================================================
+   AI
+   ============================================================ */
+
+function updateAI(c,dt){
+
+    let target=ball.pos;
+
+    // blue AI attacks orange goal;
+    // orange AI attacks blue goal.
+    const ownGoalZ=
+        c.team==="blue"
+        ?-FIELD_Z
+        :FIELD_Z;
+
+    const attackGoalZ=
+        -ownGoalZ;
+
+    // Approach ball from behind.
+    const behindZ=
+        ball.pos.z-
+        Math.sign(
+            ball.pos.z-attackGoalZ
+        )*6;
+
+    const desired=v3(
+        ball.pos.x,
+        c.pos.y,
+        behindZ
+    );
+
+    const d=sub(desired,c.pos);
+
+    const desiredYaw=
+        Math.atan2(
+            d.x,
+            d.z
+        );
+
+    let diff=
+        desiredYaw-c.yaw;
+
+    while(diff>PI)diff-=PI*2;
+    while(diff<-PI)diff+=PI*2;
+
+    const steer=clamp(diff*2,-1,1);
+
+    const forward=yawForward(c.yaw);
+
+    const accel=30;
+
+    c.vel=add(
+        c.vel,
+        mul(forward,accel*dt)
+    );
+
+    c.yaw+=steer*2.3*dt;
+
+    // AI jump if ball is elevated
+    if(
+        ball.pos.y>5 &&
+        len(sub(ball.pos,c.pos))<18 &&
+        c.grounded
+    ){
+
+        c.vel.y=16;
+        c.grounded=false;
+    }
+
+    // occasional boost
+    if(
+        Math.abs(diff)<.35 &&
+        c.boost>20 &&
+        len(sub(ball.pos,c.pos))>12
+    ){
+
+        c.vel=add(
+            c.vel,
+            mul(forward,45*dt)
+        );
+
+        c.boost-=25*dt;
+    }else{
+        c.boost+=10*dt;
+    }
+
+    c.boost=clamp(c.boost,0,100);
+
+    const h=v3(c.vel.x,0,c.vel.z);
+
+    if(len(h)>32){
+
+        const n=norm(h);
+
+        c.vel.x=n.x*32;
+        c.vel.z=n.z*32;
+    }
+
+    c.vel.y-=40*dt;
+
+    c.pos=add(
+        c.pos,
+        mul(c.vel,dt)
+    );
+
+    if(c.pos.y<=1.25){
+
+        c.pos.y=1.25;
+        c.vel.y=0;
+        c.grounded=true;
+
+    }else{
+
+        c.grounded=false;
+    }
+
+    carWalls(c);
+}
+
+/* ============================================================
+   WALL COLLISIONS
+   ============================================================ */
+
+function carWalls(c){
+
+    const limitX=FIELD_X-.5;
+    const limitZ=FIELD_Z-.5;
+
+    if(c.pos.x<-limitX){
+
+        c.pos.x=-limitX;
+        c.vel.x=Math.abs(c.vel.x)*.4;
+    }
+
+    if(c.pos.x>limitX){
+
+        c.pos.x=limitX;
+        c.vel.x=-Math.abs(c.vel.x)*.4;
+    }
+
+    if(c.pos.z<-limitZ){
+
+        c.pos.z=-limitZ;
+        c.vel.z=Math.abs(c.vel.z)*.4;
+    }
+
+    if(c.pos.z>limitZ){
+
+        c.pos.z=limitZ;
+        c.vel.z=-Math.abs(c.vel.z)*.4;
+    }
+}
+
+/* ============================================================
+   CAR-CAR COLLISION
+   ============================================================ */
+
+function carCarCollision(a,b){
+
+    const dx=b.pos.x-a.pos.x;
+    const dz=b.pos.z-a.pos.z;
+
+    const dist=Math.sqrt(dx*dx+dz*dz);
+
+    const min=a.radius+b.radius;
+
+    if(dist<min && dist>.001){
+
+        const nx=dx/dist;
+        const nz=dz/dist;
+
+        const overlap=min-dist;
+
+        a.pos.x-=nx*overlap*.5;
+        a.pos.z-=nz*overlap*.5;
+
+        b.pos.x+=nx*overlap*.5;
+        b.pos.z+=nz*overlap*.5;
+
+        const rv=
+            (b.vel.x-a.vel.x)*nx+
+            (b.vel.z-a.vel.z)*nz;
+
+        if(rv<0){
+
+            const impulse=-rv*.8;
+
+            a.vel.x-=nx*impulse;
+            a.vel.z-=nz*impulse;
+
+            b.vel.x+=nx*impulse;
+            b.vel.z+=nz*impulse;
+        }
+    }
+}
+
+/* ============================================================
+   BALL PHYSICS
+   ============================================================ */
+
+function ballPhysics(dt){
+
+    ball.vel.y-=40*dt;
+
+    ball.pos=add(
+        ball.pos,
+        mul(ball.vel,dt)
+    );
+
+    // ground bounce
+    if(ball.pos.y<ball.radius){
+
+        ball.pos.y=ball.radius;
+
+        if(ball.vel.y<0){
+            ball.vel.y*=-.72;
+        }
+
+        ball.vel.x*=.995;
+        ball.vel.z*=.995;
+    }
+
+    // side walls
+    const side=FIELD_X-ball.radius;
+
+    if(ball.pos.x<-side){
+
+        ball.pos.x=-side;
+        ball.vel.x=Math.abs(ball.vel.x)*.8;
+    }
+
+    if(ball.pos.x>side){
+
+        ball.pos.x=side;
+        ball.vel.x=-Math.abs(ball.vel.x)*.8;
+    }
+
+    // back walls except goal mouth
+    const goalHalf=GOAL_W/2;
+
+    if(
+        ball.pos.z<-FIELD_Z+ball.radius &&
+        Math.abs(ball.pos.x)>goalHalf
+    ){
+
+        ball.pos.z=-FIELD_Z+ball.radius;
+        ball.vel.z=Math.abs(ball.vel.z)*.8;
+    }
+
+    if(
+        ball.pos.z>FIELD_Z-ball.radius &&
+        Math.abs(ball.pos.x)>goalHalf
+    ){
+
+        ball.pos.z=FIELD_Z-ball.radius;
+        ball.vel.z=-Math.abs(ball.vel.z)*.8;
+    }
+
+    // goals
+    if(
+        ball.pos.z<-FIELD_Z-GOAL_D
+    ){
+        score("orange");
+        return;
+    }
+
+    if(
+        ball.pos.z>FIELD_Z+GOAL_D
+    ){
+        score("blue");
+        return;
+    }
+
+    // car collision
+    for(const c of cars){
+
+        const dx=ball.pos.x-c.pos.x;
+        const dy=ball.pos.y-c.pos.y;
+        const dz=ball.pos.z-c.pos.z;
+
+        const dist=Math.sqrt(
+            dx*dx+dy*dy+dz*dz
+        );
+
+        const min=ball.radius+c.radius;
+
+        if(dist<min && dist>.001){
+
+            const n=v3(
+                dx/dist,
+                dy/dist,
+                dz/dist
+            );
+
+            const relative=sub(
+                ball.vel,
+                c.vel
+            );
+
+            const closing=dot(relative,n);
+
+            // only apply separating impulse
+            if(closing<0){
+
+                const impulse=
+                    -closing+
+                    Math.max(0,dot(c.vel,n))*.65+
+                    5;
+
+                ball.vel=add(
+                    ball.vel,
+                    mul(n,impulse)
+                );
+
+                // high-speed hits are stronger
+                const carSpeed=len(c.vel);
+
+                if(carSpeed>20){
+
+                    ball.vel=add(
+                        ball.vel,
+                        mul(
+                            n,
+                            (carSpeed-20)*.75
+                        )
+                    );
+                }
+            }
+
+            // push out
+            ball.pos=add(
+                c.pos,
+                mul(n,min+.03)
+            );
+        }
+    }
+
+    // air drag
+    ball.vel.x*=Math.pow(.997,dt*60);
+    ball.vel.z*=Math.pow(.997,dt*60);
+
+    // speed cap
+    const s=len(ball.vel);
+
+    if(s>55){
+
+        ball.vel=mul(
+            ball.vel,
+            55/s
+        );
+    }
+}
+
+/* ============================================================
+   CAR RENDERING
+   ============================================================ */
+
+function renderCar(c){
+
+    const color=
+        c.team==="blue"
+        ?[.05,.35,.95]
+        :[.95,.25,.05];
+
+    let model=translation(
+        c.pos.x,
+        c.pos.y,
+        c.pos.z
+    );
+
+    model=mat4Multiply(
+        model,
+        rotY(c.yaw)
+    );
+
+    model=mat4Multiply(
+        model,
+        rotX(c.pitch)
+    );
+
+    model=mat4Multiply(
+        model,
+        rotZ(c.roll)
+    );
+
+    // body
+    let body=mat4Multiply(
+        model,
+        scaleMat(2.6,.7,4)
+    );
+
+    drawMesh(
+        cube,
+        body,
+        color
+    );
+
+    // roof
+    let roof=mat4Multiply(
+        model,
+        translation(0,.9,-.2)
+    );
+
+    roof=mat4Multiply(
+        roof,
+        scaleMat(1.8,.65,1.7)
+    );
+
+    drawMesh(
+        cube,
+        roof,
+        [
+            color[0]*.65,
+            color[1]*.65,
+            color[2]*.65
+        ]
+    );
+
+    // wheels
+    for(const x of [-2.1,2.1]){
+        for(const z of [-2.4,2.4]){
+
+            let wheel=mat4Multiply(
+                model,
+                translation(x,-.65,z)
+            );
+
+            wheel=mat4Multiply(
+                wheel,
+                scaleMat(.65,.65,.65)
+            );
+
+            drawMesh(
+                sphere,
+                wheel,
+                [.035,.035,.04]
+            );
+        }
+    }
+
+    // boost flame
+    if(
+        c.controlled &&
+        (keys.ShiftLeft||keys.ShiftRight) &&
+        c.boost>0
+    ){
+
+        const flame=mat4Multiply(
+            model,
+            translation(0,.1,-4.8)
+        );
+
+        const pulse=
+            .8+
+            Math.random()*.5;
+
+        const f=mat4Multiply(
+            flame,
+            scaleMat(.55,.55,1.7*pulse)
+        );
+
+        drawMesh(
+            sphere,
+            f,
+            [1,.45,.05]
+        );
+    }
+}
+
+/* ============================================================
+   CAMERA
+   ============================================================ */
+
+const camera={
+    pos:v3(),
+    target:v3()
+};
+
+function updateCamera(dt){
+
+    const forward=yawForward(player.yaw);
+
+    const desired=add(
+        player.pos,
+        v3(
+            -forward.x*15,
+            8,
+            -forward.z*15
+        )
+    );
+
+    camera.pos.x=lerp(
+        camera.pos.x,
+        desired.x,
+        1-Math.pow(.001,dt)
+    );
+
+    camera.pos.y=lerp(
+        camera.pos.y,
+        desired.y,
+        1-Math.pow(.001,dt)
+    );
+
+    camera.pos.z=lerp(
+        camera.pos.z,
+        desired.z,
+        1-Math.pow(.001,dt)
+    );
+
+    camera.target=add(
+        player.pos,
+        v3(
+            0,
+            1.5,
+            0
+        )
+    );
+
+    view=lookAt(
+        camera.pos,
+        camera.target,
+        v3(0,1,0)
+    );
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+
+function render(){
+
+    const dpr=Math.min(
+        window.devicePixelRatio||1,
+        2
+    );
+
+    const w=window.innerWidth;
+    const h=window.innerHeight;
+
+    canvas.width=w*dpr;
+    canvas.height=h*dpr;
+
+    gl.viewport(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    gl.enable(gl.DEPTH_TEST);
+
+    gl.clearColor(
+        .015,.025,.045,1
+    );
+
+    gl.clear(
+        gl.COLOR_BUFFER_BIT|
+        gl.DEPTH_BUFFER_BIT
+    );
+
+    projection=perspective(
+        PI/3,
+        canvas.width/canvas.height,
+        .1,
+        500
+    );
+
+    renderField();
+
+    ballRender();
+
+    for(const c of cars){
+        renderCar(c);
+    }
+}
+
+/* ============================================================
+   HUD
+   ============================================================ */
+
+function updateHUD(){
+
+    document.getElementById(
+        "blueScore"
+    ).textContent=blueScore;
+
+    document.getElementById(
+        "orangeScore"
+    ).textContent=orangeScore;
+
+    const minutes=
+        Math.floor(matchTime/60);
+
+    const seconds=
+        Math.floor(matchTime%60)
+        .toString()
+        .padStart(2,"0");
+
+    document.getElementById(
+        "clock"
+    ).textContent=
+        minutes+":"+seconds;
+
+    document.getElementById(
+        "boostBar"
+    ).style.width=
+        player.boost+"%";
+
+    document.getElementById(
+        "boostText"
+    ).textContent=
+        Math.round(player.boost)+" BOOST";
+}
+
+/* ============================================================
+   GAME LOOP
+   ============================================================ */
+
+let last=performance.now();
+
+function loop(now){
+
+    const dt=Math.min(
+        (now-last)/1000,
+        .033
+    );
+
+    last=now;
+
+    if(playing){
+
+        matchTime-=dt;
+
+        if(matchTime<=0){
+
+            matchTime=0;
+            playing=false;
+
+            message(
+                blueScore===orangeScore
+                ?"DRAW!"
+                :"MATCH OVER"
+            );
+
+            setTimeout(()=>{
+                blueScore=0;
+                orangeScore=0;
+                matchTime=300;
+                resetKickoff();
+                playing=true;
+            },2200);
+        }
+
+        updatePlayer(
+            player,
+            dt
+        );
+
+        for(const c of cars){
+
+            if(!c.controlled){
+                updateAI(c,dt);
+            }
+        }
+
+        for(let i=0;i<cars.length;i++){
+            for(let j=i+1;j<cars.length;j++){
+                carCarCollision(
+                    cars[i],
+                    cars[j]
+                );
+            }
+        }
+
+        ballPhysics(dt);
+
+        updateCamera(dt);
+        updateHUD();
+    }
+
+    render();
+
+    requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+
+/* ============================================================
+   MENU
+   ============================================================ */
+
+document.querySelectorAll(".mode")
+.forEach(button=>{
+
+    button.addEventListener(
+        "click",
+        ()=>{
+
+            document
+                .querySelectorAll(".mode")
+                .forEach(x=>
+                    x.classList.remove("selected")
+                );
+
+            button.classList.add("selected");
+
+            selectedMode=
+                Number(button.dataset.mode);
+        }
+    );
+});
+
+document.getElementById("start")
+.addEventListener("click",()=>{
+
+    setupTeams();
+    resetKickoff();
+
+    blueScore=0;
+    orangeScore=0;
+    matchTime=300;
+
+    playing=true;
+
+    document.getElementById(
+        "menu"
+    ).style.display="none";
+
+    document.getElementById(
+        "hud"
+```
