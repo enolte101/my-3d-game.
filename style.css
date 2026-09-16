@@ -1,1 +1,139 @@
 
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #05070d;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+#menu {
+  position: fixed;
+  z-index: 10;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  background:
+    radial-gradient(circle at center, #17335c 0%, #080c16 60%, #020307 100%);
+  text-align: center;
+}
+
+#menu h1 {
+  margin: 0;
+  font-size: clamp(45px, 9vw, 100px);
+  letter-spacing: 8px;
+  text-shadow: 0 0 30px #28a9ff;
+}
+
+#menu p {
+  font-size: 20px;
+  opacity: .8;
+}
+
+button {
+  margin-top: 25px;
+  padding: 18px 70px;
+  border: 0;
+  border-radius: 8px;
+  background: #168cff;
+  color: white;
+  font-size: 25px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 0 30px #168cff;
+}
+
+button:hover {
+  transform: scale(1.05);
+}
+
+.controls {
+  margin-top: 30px;
+  line-height: 1.8;
+  opacity: .75;
+}
+
+#hud {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 50px;
+  color: white;
+  font-size: 42px;
+  font-weight: bold;
+  pointer-events: none;
+  text-shadow: 0 3px 8px black;
+}
+
+#blueScore {
+  color: #36aaff;
+}
+
+#orangeScore {
+  color: #ff7b20;
+}
+
+#timer {
+  font-size: 28px;
+}
+
+#boost {
+  position: fixed;
+  right: 30px;
+  bottom: 30px;
+  width: 180px;
+  height: 32px;
+  border: 2px solid white;
+  border-radius: 20px;
+  overflow: hidden;
+  background: rgba(0,0,0,.5);
+  color: white;
+  text-align: center;
+  line-height: 28px;
+  font-weight: bold;
+  pointer-events: none;
+}
+
+#boostFill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  background: #ff9d22;
+  transform-origin: left;
+}
+
+#boost span {
+  position: relative;
+  z-index: 2;
+}
+
+#message {
+  position: fixed;
+  left: 50%;
+  top: 48%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 60px;
+  font-weight: bold;
+  text-align: center;
+  pointer-events: none;
+  text-shadow: 0 4px 20px black;
+}
