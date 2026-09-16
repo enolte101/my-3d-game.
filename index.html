@@ -1,1 +1,41 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Turbo Soccer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="menu">
+    <h1>TURBO SOCCER</h1>
+    <p>3D-style arcade car soccer</p>
+    <button id="play">PLAY</button>
+    <div class="controls">
+      <b>Controls</b><br>
+      W / S — Drive<br>
+      A / D — Steer<br>
+      Space — Jump<br>
+      Shift — Boost
+    </div>
+  </div>
+
+  <canvas id="game"></canvas>
+
+  <div id="hud">
+    <div id="blueScore">0</div>
+    <div id="timer">5:00</div>
+    <div id="orangeScore">0</div>
+  </div>
+
+  <div id="boost">
+    <div id="boostFill"></div>
+    <span>BOOST</span>
+  </div>
+
+  <div id="message"></div>
+
+  <script src="game.js"></script>
+</body>
+</html>
