@@ -1,1 +1,73 @@
 
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pure JS 3D Game</title>
+    <style>
+        body { margin: 0; background: #111; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        canvas { background: #000; border: 2px solid #333; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // 3D Points for a Cube (X, Y, Z)
+        let vertices = [
+            {x: -1, y: -1, z: -1}, {x: 1, y: -1, z: -1}, {x: 1, y: 1, z: -1}, {x: -1, y: 1, z: -1},
+            {x: -1, y: -1, z: 1},  {x: 1, y: -1, z: 1},  {x: 1, y: 1, z: 1},  {x: -1, y: 1, z: 1}
+        ];
+
+        // Define the 12 edges connecting the cube vertices
+        const edges = [, [1, 2], [2, 3], [3, 0], // Back face, [5, 6], [6, 7], [7, 4], // Front face, [1, 5], [2, 6], [3, 7]  // Connecting sides
+        ];
+
+        let angle = 0;
+
+        function project(x, y, z) {
+            const distance = 4; // Camera distance
+            const fov = 400;    // Field of view / scale factor
+            // Perspective formula: Divide X and Y by Z to create depth
+            const projectedX = (x * fov) / (z + distance) + canvas.width / 2;
+            const projectedY = (y * fov) / (z + distance) + canvas.height / 2;
+            return { x: projectedX, y: projectedY };
+        }
+
+        function loop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            angle += 0.02; // Rotation speed
+
+            // Rotate and project points
+            let projectedVertices = vertices.map(v => {
+                // Rotate on X axis
+                let y1 = v.y * Math.cos(angle) - v.z * Math.sin(angle);
+                let z1 = v.y * Math.sin(angle) + v.z * Math.cos(angle);
+                // Rotate on Y axis
+                let x2 = v.x * Math.cos(angle) - z1 * Math.sin(angle);
+                let z2 = v.x * Math.sin(angle) + z1 * Math.cos(angle);
+                
+                return project(x2, y1, z2);
+            });
+
+            // Draw Edges
+            ctx.strokeStyle = "#00ffcc";
+            ctx.lineWidth = 2;
+            edges.forEach(edge => {
+                const p1 = projectedVertices[edge[0]];
+                const p2 = projectedVertices[edge[1]];
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+            });
+
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+</html>
